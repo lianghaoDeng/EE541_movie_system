@@ -121,7 +121,7 @@ def train(
         monitor="valid_loss",
         mode="min",
         dirpath=model_dir,
-        filename="recommender",
+        filename='recommender-{epoch:02d}',
     )
 
     trainer = pl.Trainer(
