@@ -6,51 +6,76 @@ import pandas as pd
 from transformers import BertModel
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import DataLoader, random_split, TensorDataset
-from train_utils import MovieClassifier, encode_text, load_data, load_data_with_split, evaluate_model
+from train_utils import MovieClassifier, encode_text, load_data, evaluate_model
 from sklearn.model_selection import train_test_split
+from tqdm import tqdm
+import argparse
 
 
 
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-csv_file_path = '../../data/kaggle_movie/movies_metadata.csv'
+def main(args):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    input_ids, attention_masks, ids = load_data(csv_file=args.csv_file_path, tokenizer=tokenizer)
 
+    # Encode labels using LabelEncoder and determine number of classes
+    label_encoder = LabelEncoder()
+    encoded_labels = label_encoder.fit_transform(ids.numpy()) 
+    print(f"Type of input_ids: {type(input_ids)}, shape: {input_ids.shape}")
+    print(f"Type of attention_masks: {type(attention_masks)}, shape: {attention_masks.shape}")
+    print(f"Type of encoded_labels: {type(encoded_labels)}, shape: {torch.tensor(encoded_labels, dtype=torch.long).shape}")
+    if not isinstance(encoded_labels, torch.Tensor):
+        encoded_labels = torch.tensor(encoded_labels, dtype=torch.long)
+    else:
+        encoded_labels = encoded_labels.type(torch.long)
 
-input_ids, attention_masks, ids = load_data(csv_file=csv_file_path, tokenizer=tokenizer)
-
-
-# Encode labels using LabelEncoder and determine number of classes
-label_encoder = LabelEncoder()
-encoded_labels = label_encoder.fit_transform(ids) 
-
-dataset = TensorDataset(input_ids, attention_masks, encoded_labels)
-
-
-train_size = int(0.7 * len(dataset))
-eval_size = len(dataset) - train_size
-train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
-
-train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
-
-
-num_classes = len(np.unique(encoded_labels)) #compute the numbers of classes 
+    print(f"Type of encoded_labels after conversion/check: {type(encoded_labels)}")
+    dataset = TensorDataset(input_ids, attention_masks, encoded_labels)
 
 
-print(f"Data loading done! This is number of classes = {num_classes} inside the movie dataset")
-model = MovieClassifier(num_movies=num_classes) 
-optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
+    train_size = int(0.7 * len(dataset))
+    eval_size = len(dataset) - train_size
 
-epochs = 10
-for epoch in range(epochs):
-    for input_ids, attention_mask, labels in train_loader:
-        optimizer.zero_grad()
-        outputs = model(input_ids, attention_mask)
-        loss = nn.CrossEntropyLoss()(outputs, labels)
-        loss.backward()
-        optimizer.step()
+    train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
 
-    model.eval()
-    valid_acc = evaluate_model(model, eval_loader)
-    print(f"epoch = {epoch}, valid accuracy = {valid_acc}")
+    train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
+    eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
+
+
+    num_classes = len(np.unique(ids)) #compute the numbers of classes 
+
+
+    print(f"Data loading done! This is number of classes = {num_classes} inside the movie dataset")
+    model = MovieClassifier(num_movies=num_classes).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
+
+    epochs = 10
+    for epoch in tqdm(range(epochs), desc="Epochs"):
+
+        # Initialize a tqdm progress bar for the batches within each epoch
+        for epoch in tqdm(range(epochs), desc="Epochs"):
+            train_iterator = tqdm(train_loader, desc="Training", leave=False)
+            for batch in train_iterator:
+                input_ids, attention_mask, labels = [b.to(device) for b in batch]
+
+                optimizer.zero_grad()
+                outputs = model(input_ids, attention_mask)
+                loss = nn.CrossEntropyLoss()(outputs, labels)
+                loss.backward()
+                optimizer.step()
+
+                train_iterator.set_description(f"Training (loss={loss.item():.4f})")
+
+        model.eval()
+        valid_acc = evaluate_model(model, train_loader, device=device)
+        print(f"Epoch {epoch}: Validation Accuracy = {valid_acc}%")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train a movie classifier model.")
+    parser.add_argument('--csv_file_path', type=str, default='../../data/kaggle_movie/movies_metadata.csv',
+                        help='Path to the CSV file containing the movie data.')
+    args = parser.parse_args()
+    main(args)

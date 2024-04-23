@@ -7,7 +7,7 @@ from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import DataLoader, TensorDataset
 import pandas as pd
 from sklearn.model_selection import train_test_split
-
+import tqdm
 def encode_text(texts, tokenizer):
     """ Encodes a list of texts into BERT's format. """
     input_ids = []
@@ -73,15 +73,19 @@ class MovieClassifier(nn.Module):
 
 #     return dataset = TensorDataset(input_ids, attention_masks, ids)
 
-def evaluate_model(model, dataloader):
+def evaluate_model(model, eval_loader, device):
     model.eval()
-    total = 0
     correct = 0
+    total = 0
+    eval_iterator = tqdm(eval_loader, desc="Evaluating", leave=False)
+
     with torch.no_grad():
-        for input_ids, attention_mask, labels in dataloader:
+        for batch in eval_iterator:
+            input_ids, attention_mask, labels = [b.to(device) for b in batch]
             outputs = model(input_ids, attention_mask)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+
     accuracy = 100 * correct / total
     return accuracy
