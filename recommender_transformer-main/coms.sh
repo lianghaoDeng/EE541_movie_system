@@ -1,0 +1,1 @@
+python3 recommender/training_custom.py --data_csv_path ../data/ml-25m/ratings.csv
