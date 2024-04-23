@@ -68,12 +68,10 @@ class MovieClassifier(nn.Module):
         return logits
 
 # Assuming the load_data function returns all data needed for splitting
-def load_data_with_split(csv_file, tokenizer, test_size=0.1):
-    input_ids, attention_masks, movie_ids = load_data(csv_file, tokenizer)
-    train_ids, val_ids, train_masks, val_masks, train_labels, val_labels = train_test_split(
-        input_ids, attention_masks, movie_ids, test_size=test_size, random_state=42
-    )
-    return (train_ids, train_masks, train_labels), (val_ids, val_masks, val_labels)
+# def load_data_with_split(csv_file, tokenizer, test_size=0.1):
+#     input_ids, attention_masks, movie_ids = load_data(csv_file, tokenizer)
+
+#     return dataset = TensorDataset(input_ids, attention_masks, ids)
 
 def evaluate_model(model, dataloader):
     model.eval()

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from transformers import BertModel
 from sklearn.preprocessing import LabelEncoder
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, random_split, TensorDataset
 from train_utils import MovieClassifier, encode_text, load_data, load_data_with_split, evaluate_model
 from sklearn.model_selection import train_test_split
 
@@ -14,36 +14,37 @@ from sklearn.model_selection import train_test_split
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 csv_file_path = '../../data/kaggle_movie/movies_metadata.csv'
-from sklearn.model_selection import train_test_split
 
 
 
-(train_ids, train_masks, train_labels), (val_ids, val_masks, val_labels) = load_data_with_split(csv_file_path, tokenizer, test_size=0.2)
+input_ids, attention_masks, ids = load_data(csv_file=csv_file_path, tokenizer=tokenizer)
+
 
 # Encode labels using LabelEncoder and determine number of classes
 label_encoder = LabelEncoder()
-train_labels = label_encoder.fit_transform(train_labels)
-val_labels = label_encoder.transform(val_labels)
+encoded_labels = label_encoder.fit_transform(ids) 
 
-num_classes = len(np.unique(train_labels)) #compute the numbers of classes 
+dataset = TensorDataset(input_ids, attention_masks, encoded_labels)
 
-train_dataset = TensorDataset(train_ids, train_masks, torch.tensor(train_labels))
-val_dataset = TensorDataset(val_ids, val_masks, torch.tensor(val_labels))
+
+train_size = int(0.7 * len(dataset))
+eval_size = len(dataset) - train_size
+train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
 
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)
+eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
 
 
-dataset = TensorDataset(input_ids, attention_masks, labels)
-dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+num_classes = len(np.unique(encoded_labels)) #compute the numbers of classes 
 
-print(f"This is number of classes inside the movie dataset")
+
+print(f"Data loading done! This is number of classes = {num_classes} inside the movie dataset")
 model = MovieClassifier(num_movies=num_classes) 
 optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
 
 epochs = 10
 for epoch in range(epochs):
-    for input_ids, attention_mask, labels in dataloader:
+    for input_ids, attention_mask, labels in train_loader:
         optimizer.zero_grad()
         outputs = model(input_ids, attention_mask)
         loss = nn.CrossEntropyLoss()(outputs, labels)
@@ -51,5 +52,5 @@ for epoch in range(epochs):
         optimizer.step()
 
     model.eval()
-    valid_acc = evaluate_model(model, val_loader)
+    valid_acc = evaluate_model(model, eval_loader)
     print(f"epoch = {epoch}, valid accuracy = {valid_acc}")
