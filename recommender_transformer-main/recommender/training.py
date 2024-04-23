@@ -106,13 +106,22 @@ def train(
         num_workers=10,
         shuffle=False,
     )
-
-    model = Recommender(
-        vocab_size=len(mapping) + 2,
-        lr=1e-4,
-        dropout=0.3,
-    )
-
+    
+    checkpoint_path = "recommender_models/recommender_10epochs.ckpt"
+    if checkpoint_path:
+        print("load from pretrain!")
+        model =Recommender.load_from_checkpoint(
+            checkpoint_path,
+            vocab_size=len(mapping) + 2,
+            lr=1e-4,
+            dropout=0.3,
+        )
+    else:
+        model =Recommender(
+            vocab_size=len(mapping) + 2,
+            lr=1e-4,
+            dropout=0.3,
+        )
     logger = TensorBoardLogger(
         save_dir=log_dir,
     )
