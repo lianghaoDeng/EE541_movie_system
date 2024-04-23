@@ -10,11 +10,13 @@ from train_utils import MovieClassifier, encode_text, load_data, evaluate_model
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import argparse
-
+import os
+import glob
 
 
 
 def main(args):
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
@@ -48,11 +50,27 @@ def main(args):
     num_classes = len(np.unique(ids)) #compute the numbers of classes 
 
 
+    
     print(f"Data loading done! This is number of classes = {num_classes} inside the movie dataset")
-    model = MovieClassifier(num_movies=num_classes).to(device)
+    
+    if args.load_best_model:
+        model_files = glob.glob('customBert_*.pt')
+        if model_files:
+            latest_model = max(model_files, key=os.path.getctime)  # Load the latest best model
+            model = MovieClassifier(num_movies=num_classes).to(device)
+            model.load_state_dict(torch.load(latest_model))
+            print(f"Loaded best model from {latest_model}")
+        else:
+            print("No best model found, initializing from pretrained model instead.")
+            model = MovieClassifier(num_movies=num_classes).to(device)
+    else:
+        model = MovieClassifier(num_movies=num_classes).to(device)
+    
+    
+    
     optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
-
-    epochs = 10
+    best_valid_acc = 0.0 
+    epochs = args.epochs
     for epoch in tqdm(range(epochs), desc="Epochs"):
 
         # Initialize a tqdm progress bar for the batches within each epoch
@@ -72,10 +90,20 @@ def main(args):
         model.eval()
         valid_acc = evaluate_model(model, train_loader, device=device)
         print(f"Epoch {epoch}: Validation Accuracy = {valid_acc}%")
+        if valid_acc > best_valid_acc:
+            best_valid_acc = valid_acc
+            model_path = f"customBert_{valid_acc:.2f}.pt"  # Format the accuracy to 2 decimal places
+            torch.save(model.state_dict(), model_path)
+            print(f"Saved new best model to {model_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a movie classifier model.")
     parser.add_argument('--csv_file_path', type=str, default='../../data/kaggle_movie/movies_metadata.csv',
                         help='Path to the CSV file containing the movie data.')
+    parser.add_argument('--epochs', type=int, default=10,
+                    help='number of epochs')
+    parser.add_argument('--load_best_model', action='store_true',
+                    help='Load the best previously trained model if set, otherwise load a pretrained model.')
+
     args = parser.parse_args()
     main(args)
