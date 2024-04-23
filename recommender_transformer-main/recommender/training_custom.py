@@ -19,7 +19,7 @@ def load_data(csv_file):
     return input_ids, attention_masks, ids
 
 # Path to your CSV file
-csv_file_path = '..//movies.csv'
+csv_file_path = '../data/kaggle_movie/movies_metadata.csv'
 input_ids, attention_masks, movie_ids = load_data(csv_file_path)
 
 # Function to encode the text data
