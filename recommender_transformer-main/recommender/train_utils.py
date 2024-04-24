@@ -7,7 +7,7 @@ from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import DataLoader, TensorDataset
 import pandas as pd
 from sklearn.model_selection import train_test_split
-import tqdm
+from tqdm import tqdm
 def encode_text(texts, tokenizer):
     """ Encodes a list of texts into BERT's format. """
     input_ids = []

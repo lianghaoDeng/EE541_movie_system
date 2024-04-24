@@ -43,8 +43,8 @@ def main(args):
 
     train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
 
-    train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
-    eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
+    train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+    # eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
 
 
     num_classes = len(np.unique(ids)) #compute the numbers of classes 
@@ -68,31 +68,30 @@ def main(args):
     
     
     
-    optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
     best_valid_acc = 0.0 
     epochs = args.epochs
-    for epoch in tqdm(range(epochs), desc="Epochs"):
+    for epoch in range(epochs):
 
-        # Initialize a tqdm progress bar for the batches within each epoch
-        for epoch in tqdm(range(epochs), desc="Epochs"):
-            train_iterator = tqdm(train_loader, desc="Training", leave=False)
-            for batch in train_iterator:
-                input_ids, attention_mask, labels = [b.to(device) for b in batch]
+        model.train()
+        train_iterator = tqdm(train_loader, desc="Training", leave=False)
+        for batch in train_iterator:
+            input_ids, attention_mask, labels = [b.to(device) for b in batch]
 
-                optimizer.zero_grad()
-                outputs = model(input_ids, attention_mask)
-                loss = nn.CrossEntropyLoss()(outputs, labels)
-                loss.backward()
-                optimizer.step()
+            optimizer.zero_grad()
+            outputs = model(input_ids, attention_mask)
+            loss = nn.CrossEntropyLoss()(outputs, labels)
+            loss.backward()
+            optimizer.step()
 
-                train_iterator.set_description(f"Training (loss={loss.item():.4f})")
+            train_iterator.set_description(f"Training (loss={loss.item():.4f})")
 
         model.eval()
         valid_acc = evaluate_model(model, train_loader, device=device)
         print(f"Epoch {epoch}: Validation Accuracy = {valid_acc}%")
         if valid_acc > best_valid_acc:
             best_valid_acc = valid_acc
-            model_path = f"customBert_{valid_acc:.2f}.pt"  # Format the accuracy to 2 decimal places
+            model_path = f"./customBert_{valid_acc:.3f}.pt"  # Format the accuracy to 2 decimal places
             torch.save(model.state_dict(), model_path)
             print(f"Saved new best model to {model_path}")
 
