@@ -7,7 +7,9 @@ from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import DataLoader, TensorDataset
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MultiLabelBinarizer
 from tqdm import tqdm
+import json
 def encode_text(texts, tokenizer):
     """ Encodes a list of texts into BERT's format. """
     input_ids = []
@@ -32,39 +34,55 @@ def encode_text(texts, tokenizer):
 
     return input_ids, attention_masks
 
+# def load_data(csv_file, tokenizer):
+#     """ Loads data from CSV and encodes it using the BERT tokenizer. """
+#     data = pd.read_csv(csv_file, low_memory=False)
+#     print(f"data['id'].dtype = {data['id'].dtype}")  # Check the data type of 'id' column
+
+#     # Ensure 'id' column is integer
+#     data['id'] = pd.to_numeric(data['id'], errors='coerce')  # Convert to numeric, set errors to 'coerce' to handle non-numeric values
+#     data = data.dropna(subset=['id'])  # Drop rows where 'id' is NaN after conversion
+#     data['id'] = data['id'].astype(int)  # Convert to int
+
+#     #dealing with overview
+#     data = data.dropna(subset=['overview'])
+#     data = data[data['overview'].str.strip() != '']
+#     # Encoding text data using the encode_text function
+#     input_ids, attention_masks = encode_text(data['overview'].tolist(), tokenizer)
+
+#     # Optionally, convert IDs to tensor if you want to use them as labels or for indexing
+#     ids = torch.tensor(data['id'].values, dtype=torch.int64)  # Explicitly specify dtype as int64
+
+#     return input_ids, attention_masks, ids
+
 def load_data(csv_file, tokenizer):
-    """ Loads data from CSV and encodes it using the BERT tokenizer. """
     data = pd.read_csv(csv_file, low_memory=False)
-    print(f"data['id'].dtype = {data['id'].dtype}")  # Check the data type of 'id' column
+    data = data.dropna(subset=['overview', 'genres'])
+    data['genres'] = data['genres'].apply(lambda x: json.loads(x.replace("'", "\"")))
 
-    # Ensure 'id' column is integer
-    data['id'] = pd.to_numeric(data['id'], errors='coerce')  # Convert to numeric, set errors to 'coerce' to handle non-numeric values
-    data = data.dropna(subset=['id'])  # Drop rows where 'id' is NaN after conversion
-    data['id'] = data['id'].astype(int)  # Convert to int
-
-    #dealing with overview
-    data = data.dropna(subset=['overview'])
-    data = data[data['overview'].str.strip() != '']
-    # Encoding text data using the encode_text function
+    # Encode the textual data into BERT's format
     input_ids, attention_masks = encode_text(data['overview'].tolist(), tokenizer)
 
-    # Optionally, convert IDs to tensor if you want to use them as labels or for indexing
-    ids = torch.tensor(data['id'].values, dtype=torch.int64)  # Explicitly specify dtype as int64
+    # Extract genre ids and prepare them for multi-label classification
+    genre_lists = [list(set(genre['id'] for genre in genres)) for genres in data['genres']]
+    mlb = MultiLabelBinarizer()
+    encoded_genres = mlb.fit_transform(genre_lists)
 
-    return input_ids, attention_masks, ids
-
+    return input_ids, attention_masks, torch.tensor(encoded_genres, dtype=torch.float32)
 
 
 class MovieClassifier(nn.Module):
     def __init__(self, num_movies):
         super(MovieClassifier, self).__init__()
         self.bert = BertModel.from_pretrained('bert-base-uncased')
+        self.dropout = nn.Dropout(0.3)  # Add a Dropout layer
         self.classifier = nn.Linear(self.bert.config.hidden_size, num_movies)
 
     def forward(self, input_ids, attention_mask):
         outputs = self.bert(input_ids, attention_mask=attention_mask)
         pooled_output = outputs.pooler_output
-        logits = self.classifier(pooled_output)
+        dropped_out = self.dropout(pooled_output)
+        logits = self.classifier(dropped_out)
         return logits
 
 # Assuming the load_data function returns all data needed for splitting

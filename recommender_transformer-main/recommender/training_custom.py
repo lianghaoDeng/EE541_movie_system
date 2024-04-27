@@ -24,18 +24,18 @@ def main(args):
     input_ids, attention_masks, ids = load_data(csv_file=args.csv_file_path, tokenizer=tokenizer)
 
     # Encode labels using LabelEncoder and determine number of classes
-    label_encoder = LabelEncoder()
-    encoded_labels = label_encoder.fit_transform(ids.numpy()) 
+    # label_encoder = LabelEncoder()
+    # encoded_labels = label_encoder.fit_transform(ids.numpy()) 
     print(f"Type of input_ids: {type(input_ids)}, shape: {input_ids.shape}")
     print(f"Type of attention_masks: {type(attention_masks)}, shape: {attention_masks.shape}")
-    print(f"Type of encoded_labels: {type(encoded_labels)}, shape: {torch.tensor(encoded_labels, dtype=torch.long).shape}")
-    if not isinstance(encoded_labels, torch.Tensor):
-        encoded_labels = torch.tensor(encoded_labels, dtype=torch.long)
-    else:
-        encoded_labels = encoded_labels.type(torch.long)
+    # print(f"Type of encoded_labels: {type(encoded_labels)}, shape: {torch.tensor(encoded_labels, dtype=torch.long).shape}")
+    # if not isinstance(encoded_labels, torch.Tensor):
+    #     encoded_labels = torch.tensor(encoded_labels, dtype=torch.long)
+    # else:
+    #     encoded_labels = encoded_labels.type(torch.long)
 
-    print(f"Type of encoded_labels after conversion/check: {type(encoded_labels)}")
-    dataset = TensorDataset(input_ids, attention_masks, encoded_labels)
+    # print(f"Type of encoded_labels after conversion/check: {type(encoded_labels)}")
+    dataset = TensorDataset(input_ids, attention_masks, ids)
 
 
     train_size = int(0.7 * len(dataset))
@@ -43,11 +43,11 @@ def main(args):
 
     train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
 
-    train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+    
     # eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
 
 
-    num_classes = len(np.unique(ids)) #compute the numbers of classes 
+    num_classes = ids.shape[1]  #compute the numbers of classes 
 
 
     
@@ -71,8 +71,13 @@ def main(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
     best_valid_acc = 0.0 
     epochs = args.epochs
+    for param in model.parameters():
+        param.requires_grad = True
+    # for name, param in model.named_parameters():
+        # print(f"{name} requires grad: {param.requires_grad}")
+    loss_func = nn.BCEWithLogitsLoss()
     for epoch in range(epochs):
-
+        train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
         model.train()
         train_iterator = tqdm(train_loader, desc="Training", leave=False)
         for batch in train_iterator:
@@ -80,7 +85,7 @@ def main(args):
 
             optimizer.zero_grad()
             outputs = model(input_ids, attention_mask)
-            loss = nn.CrossEntropyLoss()(outputs, labels)
+            loss = loss_func(outputs, labels)
             loss.backward()
             optimizer.step()
 
