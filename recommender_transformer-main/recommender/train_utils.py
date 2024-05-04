@@ -34,29 +34,10 @@ def encode_text(texts, tokenizer):
 
     return input_ids, attention_masks
 
-# def load_data(csv_file, tokenizer):
-#     """ Loads data from CSV and encodes it using the BERT tokenizer. """
-#     data = pd.read_csv(csv_file, low_memory=False)
-#     print(f"data['id'].dtype = {data['id'].dtype}")  # Check the data type of 'id' column
-
-#     # Ensure 'id' column is integer
-#     data['id'] = pd.to_numeric(data['id'], errors='coerce')  # Convert to numeric, set errors to 'coerce' to handle non-numeric values
-#     data = data.dropna(subset=['id'])  # Drop rows where 'id' is NaN after conversion
-#     data['id'] = data['id'].astype(int)  # Convert to int
-
-#     #dealing with overview
-#     data = data.dropna(subset=['overview'])
-#     data = data[data['overview'].str.strip() != '']
-#     # Encoding text data using the encode_text function
-#     input_ids, attention_masks = encode_text(data['overview'].tolist(), tokenizer)
-
-#     # Optionally, convert IDs to tensor if you want to use them as labels or for indexing
-#     ids = torch.tensor(data['id'].values, dtype=torch.int64)  # Explicitly specify dtype as int64
-
-#     return input_ids, attention_masks, ids
 
 def load_data(csv_file, tokenizer):
     data = pd.read_csv(csv_file, low_memory=False)
+    # data = data[0:80] #for exmaple testing 
     data = data.dropna(subset=['overview', 'genres'])
     data['genres'] = data['genres'].apply(lambda x: json.loads(x.replace("'", "\"")))
 
@@ -91,19 +72,62 @@ class MovieClassifier(nn.Module):
 
 #     return dataset = TensorDataset(input_ids, attention_masks, ids)
 
-def evaluate_model(model, eval_loader, device):
-    model.eval()
-    correct = 0
-    total = 0
-    eval_iterator = tqdm(eval_loader, desc="Evaluating", leave=False)
+# def evaluate_model(model, eval_loader, device):
+#     model.eval()
+#     correct = 0
+#     total = 0
+#     eval_iterator = tqdm(eval_loader, desc="Evaluating", leave=False)
 
+#     with torch.no_grad():
+#         for batch in eval_iterator:
+#             input_ids, attention_mask, labels = [b.to(device) for b in batch]
+#             outputs = model(input_ids, attention_mask)
+#             predictions = torch.sigmoid(outputs) > 0.5  # Convert logits to binary predictions
+#             correct += (predictions == labels).all(dim=1).sum().item()  # Correct only if all labels match
+#             total += labels.size(0)
+
+
+#     accuracy = 100 * correct / total
+#     return accuracy
+
+# def evaluate_model(model, data_loader, device):
+#     model.eval()
+#     total_samples = 0
+#     total_correct = 0
+
+#     with torch.no_grad():
+#         for inputs, labels in data_loader:
+#             inputs = inputs.to(device)
+#             labels = labels.to(device)
+#             outputs = model(inputs)
+#             predictions = torch.sigmoid(outputs) > 0.5  # Convert logits to binary predictions
+#             total_correct += (predictions == labels).all(dim=1).sum().item()  # Correct only if all labels match
+#             total_samples += labels.size(0)
+
+#     accuracy = total_correct / total_samples
+#     return accuracy * 100  # convert fraction to percentage
+
+def evaluate_model(model, eval_loader, device, top_k=3):
+
+    total_samples = 0
+    top_k_matches = 0
+    eval_iterator = tqdm(eval_loader, desc="Evaluating", leave=False)
     with torch.no_grad():
         for batch in eval_iterator:
             input_ids, attention_mask, labels = [b.to(device) for b in batch]
             outputs = model(input_ids, attention_mask)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+            probs = torch.softmax(outputs, dim=1)
+            top_k_probs, top_k_preds = torch.topk(probs, top_k, dim=1)
 
-    accuracy = 100 * correct / total
+            for i in range(labels.size(0)):
+                actual_labels = labels[i].bool()
+                predicted_labels = torch.zeros_like(labels[i], dtype=torch.bool)
+                predicted_labels.scatter_(0, top_k_preds[i], 1)
+                
+                if (predicted_labels & actual_labels).sum() > 0:  # If there's any overlap
+                    top_k_matches += 1
+
+            total_samples += labels.size(0)
+
+    accuracy = 100 * top_k_matches / total_samples
     return accuracy

@@ -38,13 +38,13 @@ def main(args):
     dataset = TensorDataset(input_ids, attention_masks, ids)
 
 
-    train_size = int(0.7 * len(dataset))
+    train_size = int(0.8 * len(dataset))
     eval_size = len(dataset) - train_size
 
     train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
 
     
-    # eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
+    eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
 
 
     num_classes = ids.shape[1]  #compute the numbers of classes 
@@ -53,31 +53,30 @@ def main(args):
     
     print(f"Data loading done! This is number of classes = {num_classes} inside the movie dataset")
     
-    if args.load_best_model:
-        model_files = glob.glob('customBert_*.pt')
-        if model_files:
-            latest_model = max(model_files, key=os.path.getctime)  # Load the latest best model
-            model = MovieClassifier(num_movies=num_classes).to(device)
-            model.load_state_dict(torch.load(latest_model))
-            print(f"Loaded best model from {latest_model}")
-        else:
-            print("No best model found, initializing from pretrained model instead.")
-            model = MovieClassifier(num_movies=num_classes).to(device)
-    else:
+
+    model_files = glob.glob('customBert_*.pt')
+    if model_files:
+        latest_model = max(model_files, key=os.path.getctime)  # Load the latest best model
         model = MovieClassifier(num_movies=num_classes).to(device)
+        model.load_state_dict(torch.load(latest_model))
+        print(f"Loaded best model from {latest_model}")
+    else:
+        print("No best model found, initializing from pretrained model instead.")
+        model = MovieClassifier(num_movies=num_classes).to(device)
+
     
     
     
-    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     best_valid_acc = 0.0 
     epochs = args.epochs
     for param in model.parameters():
         param.requires_grad = True
     # for name, param in model.named_parameters():
         # print(f"{name} requires grad: {param.requires_grad}")
-    loss_func = nn.BCEWithLogitsLoss()
+    loss_func = nn.CrossEntropyLoss()
     for epoch in range(epochs):
-        train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
+        train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
         model.train()
         train_iterator = tqdm(train_loader, desc="Training", leave=False)
         for batch in train_iterator:
@@ -92,7 +91,7 @@ def main(args):
             train_iterator.set_description(f"Training (loss={loss.item():.4f})")
 
         model.eval()
-        valid_acc = evaluate_model(model, train_loader, device=device)
+        valid_acc = evaluate_model(model, eval_loader, device=device)
         print(f"Epoch {epoch}: Validation Accuracy = {valid_acc}%")
         if valid_acc > best_valid_acc:
             best_valid_acc = valid_acc
