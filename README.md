@@ -22,7 +22,6 @@ Ensure you have Git installed and clone this repository to your local machine:
 
 ```bash
 git clone [https://github.com/your-github/recommender_transformer-main.git](https://github.com/lianghaoDeng/EE541_movie_system.git)
-cd recommender_transformer-main
 ```
 
 ### 2. Download and Prepare the Data
@@ -40,6 +39,7 @@ Download the datasets `kaggle_movie` and `ml-25m` and place them in the `/data` 
 Use the following command to install required Python packages and set up the environment:
 
 ```bash
+cd recommender_transformer-main
 python setup.py develop
 ```
 
@@ -58,6 +58,7 @@ Follow the instructions within the notebook to process and prepare your datasets
 After processing the data, start the Jupyter notebook to run the final inference:
 
 ```bash
+cd recommender_transformer-main
 jupyter notebook Final_inference.ipynb
 ```
 
