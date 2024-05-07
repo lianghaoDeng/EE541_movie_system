@@ -54,15 +54,15 @@ def main(args):
     print(f"Data loading done! This is number of classes = {num_classes} inside the movie dataset")
     
 
-    model_files = glob.glob('customBert_*.pt')
-    if model_files:
-        latest_model = max(model_files, key=os.path.getctime)  # Load the latest best model
-        model = MovieClassifier(num_movies=num_classes).to(device)
-        model.load_state_dict(torch.load(latest_model))
-        print(f"Loaded best model from {latest_model}")
-    else:
-        print("No best model found, initializing from pretrained model instead.")
-        model = MovieClassifier(num_movies=num_classes).to(device)
+    # model_files = glob.glob('customBert_*.pt')
+    # if model_files:
+    #     latest_model = max(model_files, key=os.path.getctime)  # Load the latest best model
+    #     model = MovieClassifier(num_movies=num_classes).to(device)
+    #     model.load_state_dict(torch.load(latest_model))
+    #     print(f"Loaded best model from {latest_model}")
+    # else:
+    print("No best model found, initializing from pretrained model instead.")
+    model = MovieClassifier(num_movies=num_classes).to(device)
 
     
     
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a movie classifier model.")
     parser.add_argument('--csv_file_path', type=str, default='../../data/kaggle_movie/movies_metadata.csv',
                         help='Path to the CSV file containing the movie data.')
-    parser.add_argument('--epochs', type=int, default=10,
+    parser.add_argument('--epochs', type=int, default=40,
                     help='number of epochs')
     parser.add_argument('--load_best_model', action='store_true',
                     help='Load the best previously trained model if set, otherwise load a pretrained model.')

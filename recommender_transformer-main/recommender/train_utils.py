@@ -45,10 +45,14 @@ def load_data(csv_file, tokenizer):
     input_ids, attention_masks = encode_text(data['overview'].tolist(), tokenizer)
 
     # Extract genre ids and prepare them for multi-label classification
-    genre_lists = [list(set(genre['id'] for genre in genres)) for genres in data['genres']]
+    genre_lists = [list(set(genre['name'] for genre in genres)) for genres in data['genres']]
     mlb = MultiLabelBinarizer()
     encoded_genres = mlb.fit_transform(genre_lists)
 
+    genre_name_to_index = {name: idx for idx, name in enumerate(mlb.classes_)}
+    decoded_genres = mlb.inverse_transform(encoded_genres)
+    manual_decoding = [mlb.classes_[index] for index, value in enumerate(encoded_genres[0]) if value == 1]
+    print("Manually Decoded Genres Dictionary: ", genre_name_to_index)
     return input_ids, attention_masks, torch.tensor(encoded_genres, dtype=torch.float32)
 
 
