@@ -4,7 +4,7 @@ Welcome to our recommender system project! This project uses a custom transforme
 
 ## Project Structure
 
-- **`/data`**: This directory contains the datasets.
+- **`./data`**: This directory contains the datasets.
   - `kaggle_movie`: Dataset sourced from Kaggle.
   - `ml-25m`: Dataset from the MovieLens 25M collection.
 - **`recommender/training_custom`**: Contains the custom implementation of our transformer-based model, `CustomBertNet`.
@@ -48,10 +48,10 @@ python setup.py develop
 Before running the inference notebook, process the data using:
 
 ```bash
-jupyter notebook FinalProcessing.ipynb
+jupyter notebook ../FinalProcessing.ipynb
 ```
 
-Follow the instructions within the notebook to process and prepare your datasets.
+Follow the instructions within the notebook to process and prepare your datasets. Note: data processing is within the EE541_movie_system Directory
 
 ### 5. Run Final Inference
 
